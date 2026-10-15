@@ -23,5 +23,12 @@
 - Tests: flush-then-readback identical; fault at every flush/manifest step preserves data (retry converges); 20-case corruption matrix over footer/index/bloom/block rejections; hypothesis round-trips. 100% storage coverage. 83 tests pass; ruff + mypy strict clean.
 - Decisions: footer length trailer (D6); on-disk kinds reuse wal.RecordType (D7); stray tmp files ignored, seq numbers never reused (D8).
 
+## M4 (done)
+- `minikv/storage/lsm.py`: `LSMOptions` + `LSMEngine` (open/put/delete/get/scan/applied_index/flush/compact/close). WAL-first writes, sealed memtables, one background worker for flush+manifest+compaction, single-RLock read/swap discipline, batch-fsync timer check, multi-WAL replay, open-time GC of stray SSTables, `_crash()` test hook.
+- `minikv/storage/compaction.py`: size-tiered planner (lowest full tier, tombstone drop only at bottom tier) + k-way newest-wins merge runner with flush-identical crash protocol.
+- `minikv/storage/sstable.py`: added `alloc_sst_path`, `gc_unlisted_files`, `SSTableWriter.abort()`, atomic `flushed_raft_index` bump in flush's manifest save.
+- Tests: 500-example hypothesis model test (put/del/get/scan/flush/compact/restart vs dict), WAL truncation at all first-record/final-region offsets + boundaries, per-byte corruption, fault at every flush/compaction step, stalled-worker crash with pending jobs, 20+ case corruption matrices. 100% storage coverage. 117 tests pass; ruff + mypy strict clean.
+- Decisions: coarse lock instead of reader refcounts (D9); close() flushes and drops empty WALs (D10); flush/compact take test-only fault hooks (D11).
+
 ## Left
-- M4..M10 per scope. Next: M4 LSM engine + compaction + scans.
+- M5..M10 per scope. Next: M5 Raft core + simulator + invariants.

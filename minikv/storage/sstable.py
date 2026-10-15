@@ -121,6 +121,19 @@ class SSTableWriter:
         self._last_key = key
         self._count += 1
 
+    def abort(self) -> None:
+        """Abandon an unfinished writer: close the handle and delete the tmp."""
+        if self._finished:
+            raise RuntimeError("writer is finished")
+        f, self._f = self._f, None
+        if f is not None:
+            f.close()
+        self._finished = True
+        try:
+            self._path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
     def finish(self) -> tuple[int, bytes, bytes]:
         """Flush the index/bloom/footer, fsync, close. Returns
         ``(entry_count, min_key, max_key)``."""
@@ -371,6 +384,42 @@ def _require_len(data: bytes, want: int) -> bytes:
     return data
 
 
+def alloc_sst_path(directory: Path | str, tier: int) -> tuple[Path, Path]:
+    """Reserve the next SSTable sequence number. Returns (final, tmp)."""
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    name = f"sst_{_next_sst_seq(directory):06d}_t{tier}.sst"
+    final = directory / name
+    return final, directory / (name + _TMP_SUFFIX)
+
+
+def gc_unlisted_files(directory: Path | str, live_names: set[str]) -> list[str]:
+    """Delete ``sst_*`` files (final and tmp) absent from the manifest.
+
+    Open-time backstop for crashes between a manifest swap and input-file
+    deletion (or before a manifest update): unlisted files are garbage by
+    construction, since readers only open manifest-listed files.
+    """
+    removed: list[str] = []
+    directory = Path(directory)
+    if not directory.exists():
+        return removed
+    for child in directory.iterdir():
+        if child.name in live_names:
+            continue
+        stem = child.name[: -len(_TMP_SUFFIX)] if child.name.endswith(_TMP_SUFFIX) else child.name
+        if _SST_NAME.fullmatch(stem) and (
+            child.name.endswith(".sst") or child.name.endswith(_TMP_SUFFIX)
+        ):
+            try:
+                child.unlink()
+            except OSError:
+                pass
+            else:
+                removed.append(child.name)
+    return removed
+
+
 def flush_memtable(
     memtable: MemTable,
     data_dir: Path | str,
@@ -379,6 +428,7 @@ def flush_memtable(
     block_bytes: int = 4096,
     bloom_bits_per_key: int = 10,
     fault: Callable[[str], None] | None = None,
+    flushed_raft_index: int | None = None,
 ) -> SSTableMeta | None:
     """Write ``memtable`` to a new SSTable and record it in the manifest.
 
@@ -386,16 +436,15 @@ def flush_memtable(
     update. ``fault`` fires at ``"after_write"`` / ``"after_rename"`` /
     ``"after_manifest"`` and may raise to simulate a crash there; any failure
     leaves the data intact (memtable + WAL still hold it, or the manifest
-    already lists the complete SSTable). Returns ``None`` for an empty
-    memtable without touching disk state.
+    already lists the complete SSTable). ``flushed_raft_index`` (when given)
+    is folded into the manifest in the same atomic save. Returns ``None``
+    for an empty memtable without touching disk state.
     """
     directory = Path(data_dir)
     if len(memtable) == 0:
         return None
-    seq = _next_sst_seq(directory)
-    name = f"sst_{seq:06d}_t{tier}.sst"
-    tmp = directory / (name + _TMP_SUFFIX)
-    final = directory / name
+    final, tmp = alloc_sst_path(directory, tier)
+    name = final.name
     writer = SSTableWriter(
         tmp, block_bytes, expected_keys=len(memtable), bloom_bits_per_key=bloom_bits_per_key
     )
@@ -414,6 +463,10 @@ def flush_memtable(
         )
         manifest = store.load()
         manifest.tables.append(meta)
+        # Bumped in the same atomic save: a crash can never list the table
+        # while forgetting the raft index it carries.
+        if flushed_raft_index is not None:
+            manifest.flushed_raft_index = max(manifest.flushed_raft_index, flushed_raft_index)
         store.save(manifest)
         if fault is not None:
             fault("after_manifest")

@@ -113,3 +113,27 @@ def test_second_flush_gets_a_fresh_name(tmp_path: Path) -> None:
     assert first is not None and second is not None
     assert first.name != second.name
     assert [t.name for t in store.load().tables] == [first.name, second.name]
+
+
+def test_gc_unlisted_files(tmp_path: Path) -> None:
+    import os
+
+    from minikv.storage.sstable import gc_unlisted_files
+
+    assert gc_unlisted_files(tmp_path / "nope", set()) == []  # missing dir
+    store = ManifestStore(tmp_path)
+    flush_memtable(_memtable(), tmp_path, store)
+    (tmp_path / "sst_000009_t0.sst.tmp").write_bytes(b"stray tmp")
+    (tmp_path / "sst_000009_t2.sst").write_bytes(b"stray final")
+    (tmp_path / "notes.txt").write_bytes(b"not an sstable")
+    live = {t.name for t in store.load().tables}
+    removed = gc_unlisted_files(tmp_path, live)
+    assert sorted(removed) == ["sst_000009_t0.sst.tmp", "sst_000009_t2.sst"]
+    assert (tmp_path / "notes.txt").exists()
+    if os.geteuid() != 0:
+        (tmp_path / "sst_000010_t0.sst").write_bytes(b"undeletable")
+        os.chmod(tmp_path, 0o555)
+        try:
+            assert gc_unlisted_files(tmp_path, live) == []  # failure swallowed
+        finally:
+            os.chmod(tmp_path, 0o755)

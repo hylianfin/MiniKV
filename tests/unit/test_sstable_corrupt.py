@@ -220,6 +220,34 @@ def test_lifecycle_edges(tmp_path: Path) -> None:
         reader.get(b"k")  # closed
 
 
+def test_writer_abort(tmp_path: Path) -> None:
+    path = tmp_path / "a.sst"
+    writer = SSTableWriter(path)
+    writer.add(b"k", RecordType.PUT, b"v")
+    writer.abort()
+    assert not path.exists()
+    with pytest.raises(RuntimeError):
+        writer.abort()  # already finished via abort
+    with pytest.raises(RuntimeError):
+        writer.add(b"k2", RecordType.PUT, b"v")  # finished
+
+
+def test_abort_unlink_failure_swallowed(tmp_path: Path) -> None:
+    import os
+
+    if os.geteuid() == 0:
+        pytest.skip("read-only dirs are still writable as root")
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    writer = SSTableWriter(sub / "a.sst")
+    writer.add(b"k", RecordType.PUT, b"v")
+    os.chmod(sub, 0o555)
+    try:
+        writer.abort()  # tmp deletion fails, swallowed
+    finally:
+        os.chmod(sub, 0o755)
+
+
 def test_tmp_cleanup_oserror_is_swallowed(tmp_path: Path) -> None:
     if os.geteuid() == 0:
         pytest.skip("read-only dirs still unlinkable as root")

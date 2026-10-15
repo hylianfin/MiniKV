@@ -38,3 +38,18 @@ IntEnum serves both. memtable.EntryKind maps explicitly at flush time.
 Readers only open manifest-listed files. `_next_sst_seq` scans the
 directory (including `*.tmp`) so a crashed flush's file can never have
 its name recycled by a retry.
+
+## D9 (M4): one RLock instead of SSTable reader refcounts
+All manifest swaps and reader replacements happen on the single background
+worker under the engine RLock, which user reads also hold. A swapped-out
+reader therefore has no concurrent user, so it can be closed immediately.
+Same safety as refcounts, far less machinery; documented in lsm.py.
+
+## D10 (M4): close() flushes pending data and removes empty WALs
+A clean close leaves no WAL litter: non-empty memtables flush (their WALs
+are deleted post-manifest), empty WALs are deleted directly.
+
+## D11 (M4): flush()/compact() accept a test-only fault hook
+The public signatures gain an optional `fault` parameter (default None)
+forwarded to the storage crash points. Production callers never pass it;
+crash tests use it to simulate failure between steps.
