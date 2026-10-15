@@ -24,3 +24,17 @@ rather than silently accepting a garbage file. Damage mimicking a torn tail
 ## D5 (M2): WAL close() fsyncs under always/batch
 Only a crash (not a clean close) can lose un-fsync'd batch data. `never`
 skips fsync entirely and is benchmarks-only.
+
+## D6 (M3): SSTable footer ends with its own length
+Min/max keys are variable-length, so the footer cannot be fixed-size.
+The trailing u32 length lets the reader locate the footer from EOF; the
+CRC covers index_offset through magic (not the length locator itself).
+
+## D7 (M3): on-disk entry kinds reuse wal.RecordType
+PUT/DELETE tombstone semantics are identical in WAL and SSTable, so one
+IntEnum serves both. memtable.EntryKind maps explicitly at flush time.
+
+## D8 (M3): stray tmp files are ignored, sequence numbers never reused
+Readers only open manifest-listed files. `_next_sst_seq` scans the
+directory (including `*.tmp`) so a crashed flush's file can never have
+its name recycled by a retry.

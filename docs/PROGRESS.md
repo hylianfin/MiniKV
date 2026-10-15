@@ -16,5 +16,12 @@
 - Tests: exhaustive truncation at every byte offset (prefix property + file truncation), single-byte corruption at every position (prefix or raise), crafted valid-CRC/malformed-body cases, fsync-policy matrix, hypothesis round-trip. 100% storage coverage. 43 tests pass; ruff check/format and mypy strict clean.
 - Decisions: ambiguous-offset-0 raises, torn tail never raises (D4); close() fsyncs under always/batch (D5).
 
+## M3 (done)
+- `minikv/storage/bloom.py`: from-scratch bloom (10 bits/key, k=7 derived, double hashing over one blake2b digest), serializable; measured FPR within 2x theory, zero false negatives.
+- `minikv/storage/sstable.py`: immutable sorted files (CRC'd data blocks, sparse index, bloom, footer with magic+CRC+length trailer), range-then-bloom-then-index `get`, `iter_from` scans, tmp/fsync/rename/dir-fsync write protocol, `flush_memtable` with per-step crash injection.
+- `minikv/storage/manifest.py`: JSON live-table list + `flushed_raft_index`, atomic tmp/fsync/rename/dir-fsync updates with crash-point hooks.
+- Tests: flush-then-readback identical; fault at every flush/manifest step preserves data (retry converges); 20-case corruption matrix over footer/index/bloom/block rejections; hypothesis round-trips. 100% storage coverage. 83 tests pass; ruff + mypy strict clean.
+- Decisions: footer length trailer (D6); on-disk kinds reuse wal.RecordType (D7); stray tmp files ignored, seq numbers never reused (D8).
+
 ## Left
-- M3..M10 per scope. Next: M3 SSTable, bloom, manifest + flush path.
+- M4..M10 per scope. Next: M4 LSM engine + compaction + scans.
