@@ -53,3 +53,36 @@ are deleted post-manifest), empty WALs are deleted directly.
 The public signatures gain an optional `fault` parameter (default None)
 forwarded to the storage crash points. Production callers never pass it;
 crash tests use it to simulate failure between steps.
+
+## D12 (M5): group commit via action coalescing, not core timers
+`propose()` appends synchronously (index known immediately, matching the
+spec signature) while runtimes coalesce one batch window's actions:
+contiguous Persists merge into one fsync, each follower keeps its latest
+Send. Same network/disk effect as core-side batching, far simpler core.
+
+## D13 (M5): core takes a read-only store seed; durability is action-ordered
+The core copies PersistedState at construction and never touches the store
+again. Every term/vote/log mutation emits SaveTermVote/Persist BEFORE the
+dependent Sends; runtimes must execute actions in order (in-order
+execution + memory/store fate-sharing is what makes duplicate-delivery
+skipping and restart recovery sound).
+
+## D14 (M5): pre-vote grant is log-check only (no voted_for gate)
+Gating pre-votes on voted_for deadlocks post-crash elections (everyone
+voted for the dead leader). Safety holds: pre-votes elect nothing, and
+real votes keep one-vote-per-term.
+
+## D15 (M5): fast-backup next_index strictly decreases
+Jumping past the leader's own term end can overshoot the follower and
+oscillate (6->3->6). The jump is capped back to the follower's conflict
+point, so every rejection makes progress (bounded below by 1).
+
+## D16 (M5): invariants re-baseline commit/applied on restart
+Monotonicity is per-incarnation; a restart adopts durable state as the new
+floor (tracked via a per-node generation counter). Leader histories reset
+likewise. Committed-entry records are global and never reset.
+
+## D17 (M5): handle_message takes an optional sender
+RPC responses carry no author (matching proto), but check-quorum needs
+contact attribution, so the runtime passes it. Requests ignore it (they
+carry candidate/leader ids).

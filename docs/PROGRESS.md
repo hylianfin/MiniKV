@@ -30,5 +30,13 @@
 - Tests: 500-example hypothesis model test (put/del/get/scan/flush/compact/restart vs dict), WAL truncation at all first-record/final-region offsets + boundaries, per-byte corruption, fault at every flush/compaction step, stalled-worker crash with pending jobs, 20+ case corruption matrices. 100% storage coverage. 117 tests pass; ruff + mypy strict clean.
 - Decisions: coarse lock instead of reader refcounts (D9); close() flushes and drops empty WALs (D10); flush/compact take test-only fault hooks (D11).
 
+## M5 (done)
+- `minikv/raft/types.py`: roles, entries, all RPC messages, sans-IO actions (Send/Persist/SaveTermVote/Apply), ProposeOk/NotLeader, RaftConfig, PersistedState + RaftStore protocol.
+- `minikv/raft/core.py`: sans-IO RaftCore (Figure-2 rules + pre-vote + check-quorum + fast backup + NOOP-on-election + own-term commit rule), `coalesce_actions` group-commit helper.
+- `sim/`: VirtualClock, lossy/partitionable SimNetwork, SimCluster (seeded RNG, MemoryStore with fsync horizon, crash/loss/restart, batched proposes), 6-property InvariantChecker.
+- Tests: 17 core unit tests (incl. Figure-8 commit rule, truncation, pre-vote, quorum, backup, coalescing), sim scenarios (election/replication 3+5 nodes @200 seeds; crash, partition, isolation, lossy, all-restart, churn, fsync-loss, pre-vote disruption @10-50 seeds), direct checker verification. 100% source coverage. 161 tests pass; ruff + mypy strict clean.
+- Caught by simulation (all fixed + tested): pre-vote voted_for gate blocking post-crash elections; fast-backup forward-jump livelock; duplicated step-down block.
+- Decisions: D12-D17.
+
 ## Left
-- M5..M10 per scope. Next: M5 Raft core + simulator + invariants.
+- M6..M10 per scope. Next: M6 Raft persistence (logstore) + KV state machine + sessions.
