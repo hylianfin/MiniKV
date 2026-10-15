@@ -1,0 +1,63 @@
+[project]
+name = "minikv"
+version = "0.0.0"
+description = "MiniKV: small distributed key-value store (Raft + LSM). Built with AI assistance (OpenCode), design decisions, review and testing by the author."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "grpcio>=1.60",
+  "grpcio-tools>=1.60",
+  "typer>=0.9",
+]
+authors = [{ name = "MiniKV Author" }]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "hypothesis>=6",
+]
+bench = ["matplotlib>=3.8"]
+dev = [
+  "minikv[test,bench]",
+  "ruff>=0.4",
+  "mypy>=1.10",
+  "grpcio-tools>=1.60",
+]
+
+[project.scripts]
+minikv = "minikv.client.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["minikv*", "sim*", "bench*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = false
+show_error_codes = true
+
+# Strict on storage and raft core per scope section 2.
+[[tool.mypy.overrides]]
+module = ["minikv.storage.*", "minikv.raft.*"]
+strict = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+disallow_incomplete_defs = true

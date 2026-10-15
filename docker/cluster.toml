@@ -1,0 +1,17 @@
+[cluster]
+nodes = [
+  { id = "n1", addr = "n1:7001" },
+  { id = "n2", addr = "n2:7001" },
+  { id = "n3", addr = "n3:7001" },
+]
+
+[raft]
+election_timeout_ms = [300, 600]
+heartbeat_ms = 100
+pre_vote = true
+read_mode = "readindex"
+batch_window_ms = 2
+
+[storage]
+memtable_bytes = 4194304
+fsync_policy = "always"

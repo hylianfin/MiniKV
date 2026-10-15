@@ -1,0 +1,24 @@
+services:
+  n1:
+    build: ..
+    dockerfile: docker/Dockerfile
+    command: ["python", "-m", "minikv.server.main", "--id", "n1", "--config", "/app/docker/cluster.toml", "--data-dir", "/data/n1"]
+    ports: ["7001:7001"]
+    volumes: ["n1data:/data/n1", "./cluster.toml:/app/docker/cluster.toml:ro"]
+  n2:
+    build: ..
+    dockerfile: docker/Dockerfile
+    command: ["python", "-m", "minikv.server.main", "--id", "n2", "--config", "/app/docker/cluster.toml", "--data-dir", "/data/n2"]
+    ports: ["7002:7001"]
+    volumes: ["n2data:/data/n2", "./cluster.toml:/app/docker/cluster.toml:ro"]
+  n3:
+    build: ..
+    dockerfile: docker/Dockerfile
+    command: ["python", "-m", "minikv.server.main", "--id", "n3", "--config", "/app/docker/cluster.toml", "--data-dir", "/data/n3"]
+    ports: ["7003:7001"]
+    volumes: ["n3data:/data/n3", "./cluster.toml:/app/docker/cluster.toml:ro"]
+
+volumes:
+  n1data: {}
+  n2data: {}
+  n3data: {}

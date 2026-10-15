@@ -1,0 +1,2 @@
+[console_scripts]
+minikv = minikv.client.cli:app

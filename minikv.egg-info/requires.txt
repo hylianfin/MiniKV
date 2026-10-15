@@ -1,0 +1,17 @@
+grpcio>=1.60
+grpcio-tools>=1.60
+typer>=0.9
+
+[bench]
+matplotlib>=3.8
+
+[dev]
+minikv[bench,test]
+ruff>=0.4
+mypy>=1.10
+grpcio-tools>=1.60
+
+[test]
+pytest>=8
+pytest-asyncio>=0.23
+hypothesis>=6
