@@ -119,6 +119,9 @@ def test_single_node_elects_itself() -> None:
     assert h.leaders() == ["solo"]
     h.cores["solo"].tick(h.now + 10000)  # no quorum to lose alone: stays leader
     assert h.leaders() == ["solo"]
+    # Heartbeats are a leader-only operation.
+    h2 = Harness(["a", "b"], seed=3)
+    assert h2.cores["a"].heartbeat(0) == []
 
 
 def test_vote_denied_after_voting_and_for_stale_log() -> None:

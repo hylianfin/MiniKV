@@ -47,5 +47,16 @@
 - Caught: replayed memtable left immutable (first post-reopen put crashed); CAS result presence-flag inversion.
 - Decisions: D18-D20.
 
+## M7 (done)
+- `minikv/raft/node.py`: asyncio RaftNode (core lock, disk lock, batcher with group-commit window, FIFO apply queue with fail-stop poison handling, ReadIndex barrier, waiters, deferred-action backstop).
+- `minikv/raft/transport.py` + `grpc_transport.py`: transport protocol + gRPC impl with message conversion.
+- `minikv/server/`: TOML config, KV+Raft gRPC servicers (linearizable/log/stale reads, scan streaming, status), `serve()` entrypoint.
+- `minikv/client/`: leader-tracking client (shared-seq retries, backoff, scan-restart) + typer CLI (server/put/get/del/cas/scan/status).
+- `proto/gen_proto.py` + hand-written `minikv_pb2*.pyi` stubs; Makefile; Docker build/run verified for real.
+- Tests: mesh-node units, servicer units, client retry units (scripted fakes), real-gRPC cluster + real-binary CLI integration (incl. kill -9 failover). 100% source coverage. 238 tests pass; ruff + mypy strict clean.
+- Verified by hand: `docker compose up` → 3 nodes elect; CLI put/get/scan; `docker kill` leader → new leader term+1, no loss, writes continue; killed node rejoins and catches up.
+- Caught: single-node never committing (commit only advanced on responses — added `check_commit`); `grpc.AioRpcError` attribute (it's `grpc.aio.AioRpcError`); generated grpc import needs packaging fixup; grpc.aio stalls on non-main-thread loops (CLI tests use real subprocesses).
+- Decisions: D21-D26.
+
 ## Left
-- M7..M10 per scope. Next: M7 real gRPC server + client + CLI + Docker.
+- M8..M10 per scope. Next: M8 linearizability checker + ReadIndex proof + chaos.

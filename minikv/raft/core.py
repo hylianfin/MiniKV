@@ -158,7 +158,6 @@ class RaftCore:
         runtime concern: runtimes coalesce these actions (see
         ``coalesce_actions``) instead of the core delaying the append, so
         the log index is known immediately."""
-        _ = now_ms
         if self._role is not Role.LEADER:
             return NotLeader(self._leader_id), []
         entry = LogEntry(
@@ -172,6 +171,22 @@ class RaftCore:
         for peer in self._peers:
             actions.append(self._ae_to(peer))
         return ProposeOk(entry.index), actions
+
+    def heartbeat(self, now_ms: int) -> list[Action]:
+        """AppendEntries to every peer right now (ReadIndex confirmation).
+        Empty unless leader; also resets the heartbeat deadline."""
+        if self._role is not Role.LEADER:
+            return []
+        self._heartbeat_deadline = now_ms + self._config.heartbeat_ms
+        return [self._ae_to(peer) for peer in self._peers]
+
+    def check_commit(self) -> list[Action]:
+        """Advance the commit index if the local state suffices (a lone
+        node commits its own entries with no responses at all) and return
+        any newly appliable actions. Always safe: without new match
+        information the commit cannot move."""
+        self._advance_commit()
+        return self._drain_applies()
 
     def _on_pre_vote(self, msg: RequestVote) -> list[Action]:
         # Only the log comparison gates a pre-vote -- deliberately NOT

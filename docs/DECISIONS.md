@@ -102,3 +102,34 @@ before any re-apply.
 Unreachable through Raft (same-client entries apply in seq order), but the
 fallback is state-safe rather than an error: execute, return fresh result,
 leave the session table untouched.
+
+## D21 (M7): per-request read mode wins; batching defaults on, flaggable off
+Config `read_mode` is validated but the RPC's ReadMode decides each read.
+`batching` (TOML key + `--batching/--no-batching`) exists for the M9
+with/without comparison; the window still comes from `batch_window_ms`.
+
+## D22 (M7): fsyncs under a disk lock in an executor, never under core lock
+Tick stalls would cause false elections. FIFO lock fairness keeps disk
+order identical to core order; a dedicated apply queue preserves global
+apply order (CAS is order-sensitive) and drives client waiters.
+
+## D23 (M7): poisoned log entries fail-stop the node
+An undecodable entry cannot be skipped (order is sacred) or applied
+(state would diverge). The apply loop fails all waiters, records the
+error, and stop() surfaces it after cleanup.
+
+## D24 (M7): hand-written pb2 stubs instead of stub packages
+Generated protobuf has no static types; rather than adding stub
+dependencies or weakening checks, `minikv_pb2*.pyi` are maintained
+alongside the proto (regenerate mentally on proto change).
+
+## D25 (M7): scans snapshot at stream start
+Scan materializes under the engine lock, so a mid-stream leadership loss
+cannot corrupt it; clients restart streams on NOT_LEADER (duplicates
+across the restart are possible, loss/invention are not).
+
+## D26 (M7): ReadIndex = heartbeat majority + wait applied
+The leader records commit_index, confirms a heartbeat majority at the
+same term, then waits for LSM application (not just core emission) before
+reading. Stale-leader reads are impossible: a deposed leader cannot
+assemble a same-term majority without learning the newer term.

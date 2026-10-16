@@ -12,3 +12,5 @@ data/
 *.tmp
 MANIFEST.tmp
 WAL
+minikv/minikv_pb2.py
+minikv/minikv_pb2_grpc.py

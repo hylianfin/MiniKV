@@ -36,6 +36,9 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["minikv*", "sim*", "bench*"]
 
+[tool.coverage.run]
+omit = ["minikv/minikv_pb2.py", "minikv/minikv_pb2_grpc.py"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
@@ -46,6 +49,9 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"minikv/client/cli.py" = ["B008"]  # typer.Option in defaults is the documented idiom
 
 [tool.mypy]
 python_version = "3.12"
@@ -61,3 +67,10 @@ strict = true
 disallow_untyped_defs = true
 disallow_untyped_calls = true
 disallow_incomplete_defs = true
+
+# Generated protobuf code has hand-maintained stubs (minikv_pb2.pyi); the
+# C-extension RPC lib has no type information, so treat it as dynamic.
+[[tool.mypy.overrides]]
+module = ["grpc.*"]
+ignore_missing_imports = true
+ignore_errors = true

@@ -1,0 +1,16 @@
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+data/
+docs/
+tests/
+bench/
+.gitignore
+.coverage*
+coverage.xml
+*.log
+/tmp/
