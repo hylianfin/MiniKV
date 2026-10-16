@@ -150,3 +150,14 @@ without it, pre-existing values read as lost-write violations.
 Successful CAS requires state==expected, delete carries existed, failed
 CAS reads current. This is what makes the checker sensitive to
 read-modify-write anomalies, not just stale reads.
+
+## D30 (M9): wall-clock-bounded benchmarks, reported as measured
+Phases run N seconds (not N ops) so suites take predictable time on any
+box. Numbers are reported as-measured with machine specs and caveats
+(APFS cheap fsync, localhost-only, saturation points) instead of chasing
+the scope's aspirational goals.
+
+## D31 (M9): bloom toggle as zero-length bloom blocks
+`bloom_bits_per_key=0` writes an empty bloom section the reader treats as
+always-maybe-present. Same file format, same code path, one branch --
+the minimal honest on/off switch.

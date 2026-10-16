@@ -1,0 +1,23 @@
+{
+  "batching": true,
+  "bloom": true,
+  "concurrency": 16,
+  "fsync": "always",
+  "kind": "write_only",
+  "label": "cluster-write-4KiB-c16",
+  "machine": {
+    "cpus": 10,
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "ops": 6951,
+  "ops_per_sec": 695.1,
+  "p50_ms": 20.528,
+  "p95_ms": 36.836,
+  "p99_ms": 54.619,
+  "read_mode": "linearizable",
+  "seconds": 10,
+  "suite": "cluster",
+  "value_size": 4096,
+  "workload": "write-only-4KiB-c16"
+}

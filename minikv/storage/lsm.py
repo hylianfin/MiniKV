@@ -48,6 +48,7 @@ class LSMOptions:
     batch_interval_ms: int = 10
     block_bytes: int = 4096
     bloom_bits_per_key: int = 10
+    bloom_enabled: bool = True
     compaction_trigger: int = 4
 
     def __post_init__(self) -> None:
@@ -363,7 +364,7 @@ class LSMEngine:
             self._store,
             tier=0,
             block_bytes=self._options.block_bytes,
-            bloom_bits_per_key=self._options.bloom_bits_per_key,
+            bloom_bits_per_key=self._bloom_bits(),
             fault=fault,
             flushed_raft_index=job.max_raft,
         )
@@ -376,6 +377,10 @@ class LSMEngine:
             self._sealed = [s for s in self._sealed if s.wal_path != job.wal_path]
         self._run_compactions()
 
+    def _bloom_bits(self) -> int:
+        # 0 disables the filter (benchmark comparison "bloom off").
+        return self._options.bloom_bits_per_key if self._options.bloom_enabled else 0
+
     def _run_compactions(self) -> None:
         while True:
             plan = plan_compaction(self._store.load(), self._options.compaction_trigger)
@@ -386,7 +391,7 @@ class LSMEngine:
                 plan,
                 self._store,
                 block_bytes=self._options.block_bytes,
-                bloom_bits_per_key=self._options.bloom_bits_per_key,
+                bloom_bits_per_key=self._bloom_bits(),
                 fault=self._fault,
             )
             with self._guard:

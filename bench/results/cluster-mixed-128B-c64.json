@@ -1,0 +1,23 @@
+{
+  "batching": true,
+  "bloom": true,
+  "concurrency": 64,
+  "fsync": "always",
+  "kind": "mixed",
+  "label": "cluster-mixed-128B-c64",
+  "machine": {
+    "cpus": 10,
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "ops": 4457,
+  "ops_per_sec": 557.1,
+  "p50_ms": 112.487,
+  "p95_ms": 151.451,
+  "p99_ms": 207.447,
+  "read_mode": "linearizable",
+  "seconds": 8,
+  "suite": "cluster",
+  "value_size": 128,
+  "workload": "mixed-128B-c64"
+}

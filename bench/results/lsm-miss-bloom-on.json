@@ -1,0 +1,21 @@
+{
+  "bloom": true,
+  "concurrency": 1,
+  "fsync": "never",
+  "kind": "read_miss",
+  "label": "lsm-miss-bloom-on",
+  "machine": {
+    "cpus": 10,
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "ops": 7655538,
+  "ops_per_sec": 956942.2,
+  "p50_ms": 0.001,
+  "p95_ms": 0.002,
+  "p99_ms": 0.002,
+  "seconds": 8,
+  "suite": "lsm",
+  "value_size": 128,
+  "workload": "read-miss-128B"
+}

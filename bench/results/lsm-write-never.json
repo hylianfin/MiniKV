@@ -1,0 +1,21 @@
+{
+  "bloom": true,
+  "concurrency": 1,
+  "fsync": "never",
+  "kind": "write_only",
+  "label": "lsm-write-never",
+  "machine": {
+    "cpus": 10,
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "ops": 413060,
+  "ops_per_sec": 51632.5,
+  "p50_ms": 0.015,
+  "p95_ms": 0.017,
+  "p99_ms": 0.035,
+  "seconds": 8,
+  "suite": "lsm",
+  "value_size": 128,
+  "workload": "write-only-128B"
+}

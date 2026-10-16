@@ -87,6 +87,8 @@ class SSTableWriter:
     ) -> None:
         if block_bytes <= 0:
             raise ValueError("block_bytes must be positive")
+        if bloom_bits_per_key < 0:
+            raise ValueError("bloom_bits_per_key must be >= 0")
         self._path = Path(path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._block_bytes = block_bytes
@@ -94,7 +96,13 @@ class SSTableWriter:
         self._block = bytearray()
         self._block_first: bytes | None = None
         self._index: list[tuple[bytes, int, int]] = []
-        self._bloom = BloomFilter.sized(max(expected_keys, 1), bloom_bits_per_key)
+        # bloom_bits_per_key=0 disables the filter (benchmark comparison);
+        # the reader treats a zero-length bloom block as "maybe present".
+        self._bloom: BloomFilter | None = (
+            BloomFilter.sized(max(expected_keys, 1), bloom_bits_per_key)
+            if bloom_bits_per_key > 0
+            else None
+        )
         self._offset = 0
         self._count = 0
         self._min_key: bytes | None = None
@@ -115,7 +123,8 @@ class SSTableWriter:
         if not self._block:
             self._block_first = key
         self._block += entry
-        self._bloom.add(key)
+        if self._bloom is not None:
+            self._bloom.add(key)
         if self._min_key is None:
             self._min_key = key
         self._last_key = key
@@ -151,7 +160,7 @@ class SSTableWriter:
         )
         f.write(index_bytes)
         bloom_off = index_off + len(index_bytes)
-        bloom_bytes = self._bloom.to_bytes()
+        bloom_bytes = self._bloom.to_bytes() if self._bloom is not None else b""
         f.write(bloom_bytes)
         assert self._min_key is not None and self._last_key is not None
         footer = (
@@ -202,7 +211,11 @@ class SSTableReader:
             self._min_key = footer.min_key
             self._max_key = footer.max_key
             self._index = self._read_index(footer.index_off, footer.index_size)
-            self._bloom = self._read_bloom(footer.bloom_off, footer.bloom_size)
+            self._bloom = (
+                self._read_bloom(footer.bloom_off, footer.bloom_size)
+                if footer.bloom_size > 0
+                else None
+            )
         except BaseException:
             f, self._f = self._f, None
             if f is not None:
@@ -233,7 +246,7 @@ class SSTableReader:
         # either avoids all block I/O.
         if key < self._min_key or key > self._max_key:
             return None
-        if key not in self._bloom:
+        if self._bloom is not None and key not in self._bloom:
             return None
         _, off, size = self._index[max(bisect_right(self._first_keys, key) - 1, 0)]
         for entry in self._read_block(off, size):
@@ -295,7 +308,7 @@ class SSTableReader:
         pos += max_len
         if len(body) != pos + _U64.size or _U64.unpack_from(body, pos)[0] != SSTABLE_MAGIC:
             raise CorruptSSTableError("bad footer magic")
-        if count < 1 or index_size < _INDEX_COUNT.size or bloom_size == 0:
+        if count < 1 or index_size < _INDEX_COUNT.size:
             raise CorruptSSTableError("bad footer counts")
         data_end = size - _U32.size - footer_len
         if index_off + index_size > data_end or bloom_off + bloom_size > data_end:

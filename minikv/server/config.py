@@ -99,6 +99,7 @@ def load_config(path: Path | str) -> ClusterConfig:
         batch_interval_ms=_require_int(storage, "batch_interval_ms", 10),
         block_bytes=_require_int(storage, "block_bytes", 4096),
         bloom_bits_per_key=_require_int(storage, "bloom_bits_per_key", 10),
+        bloom_enabled=_require_bool(storage, "bloom_enabled", True),
         compaction_trigger=_require_int(storage, "compaction_trigger", 4),
     )
     return ClusterConfig(

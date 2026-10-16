@@ -68,5 +68,13 @@
 - Caught: chaos keys persisting across runs broke the absent-initial assumption (per-run unique keys); `&`/`==` precedence bug in the DFS terminal check.
 - Decisions: D27-D29.
 
+## M9 (done)
+- `bench/`: wall-clock-bounded workloads (write-only/mixed/read-only/miss × 128B/4KiB × conc 1/16/64), LSM + 3-node runners, matplotlib report generator (`run_bench.py` → JSON, `report.py` → `docs/benchmarks.md` + charts).
+- `LSMOptions.bloom_enabled` + zero-length bloom blocks for the on/off comparison.
+- Docs: README (quickstart, arch, CLI, evidence, limits, AI note), DESIGN.md, architecture diagrams, WHAT_I_LEARNED (12 answers), generated benchmarks report.
+- Measured (Apple silicon, APFS): LSM 26.7k/50.0k/51.6k w/s (always/batch/never); cluster batch on/off 1343/991 w/s; reads lin/stale 1344/14068 r/s; bloom miss on/off 957k/233k r/s. Honest caveats recorded.
+- 257 tests pass; ruff + mypy clean; 100% source coverage.
+- Decisions: D30-D31.
+
 ## Left
-- M9..M10 per scope. Next: M9 benchmarks + docs (README, DESIGN, diagrams, report).
+- M10 (stretch, pick any) per scope. Suggested: snapshots/InstallSnapshot, membership change, Prometheus metrics, or TypeScript client.

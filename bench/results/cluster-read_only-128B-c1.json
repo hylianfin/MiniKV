@@ -1,0 +1,23 @@
+{
+  "batching": true,
+  "bloom": true,
+  "concurrency": 1,
+  "fsync": "always",
+  "kind": "read_only",
+  "label": "cluster-read_only-128B-c1",
+  "machine": {
+    "cpus": 10,
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "ops": 7709,
+  "ops_per_sec": 963.6,
+  "p50_ms": 1.018,
+  "p95_ms": 1.053,
+  "p99_ms": 1.221,
+  "read_mode": "linearizable",
+  "seconds": 8,
+  "suite": "cluster",
+  "value_size": 128,
+  "workload": "read_only-128B-c1"
+}

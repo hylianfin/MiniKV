@@ -1,0 +1,23 @@
+{
+  "batching": true,
+  "bloom": true,
+  "concurrency": 16,
+  "fsync": "always",
+  "kind": "read_only",
+  "label": "cluster-read-stale",
+  "machine": {
+    "cpus": 10,
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.7"
+  },
+  "ops": 140684,
+  "ops_per_sec": 14068.4,
+  "p50_ms": 1.099,
+  "p95_ms": 1.312,
+  "p99_ms": 2.379,
+  "read_mode": "stale",
+  "seconds": 10,
+  "suite": "cluster",
+  "value_size": 128,
+  "workload": "read-only-128B-c16"
+}

@@ -85,6 +85,8 @@ def test_writer_rejects_empty_and_unordered() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         with pytest.raises(ValueError, match="no entries"):
             SSTableWriter(Path(tmp) / "e.sst").finish()
+        with pytest.raises(ValueError, match="bloom_bits_per_key"):
+            SSTableWriter(Path(tmp) / "b.sst", bloom_bits_per_key=-1)
         w = SSTableWriter(Path(tmp) / "o.sst")
         w.add(b"b", RecordType.PUT, b"1")
         with pytest.raises(ValueError, match="increasing"):
@@ -118,3 +120,19 @@ def test_bad_magic_and_truncation_rejected(tmp_path: Path) -> None:
     short.write_bytes(b"tiny")
     with pytest.raises(CorruptSSTableError):
         SSTableReader(short)
+
+
+def test_bloom_disabled_reads_correctly(tmp_path: Path) -> None:
+    entries = _sample_entries()
+    writer = SSTableWriter(
+        tmp_path / "nb.sst", block_bytes=128, expected_keys=len(entries), bloom_bits_per_key=0
+    )
+    for e in entries:
+        writer.add(e.key, e.kind, e.value)
+    writer.finish()
+    with SSTableReader(tmp_path / "nb.sst") as reader:
+        assert reader._bloom is None
+        for e in entries:
+            assert reader.get(e.key) == e
+        assert reader.get(b"bb") is None  # miss costs a block read, still correct
+        assert list(reader) == entries
