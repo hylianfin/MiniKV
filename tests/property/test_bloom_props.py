@@ -33,7 +33,9 @@ def test_fpr_within_2x_of_theory(keys: list[bytes]) -> None:
     probes = 0
     fp = 0
     i = 0
-    while probes < 2000:
+    # 8000 probes concentrates the rate: P(measured > 2x theory) is ~1e-9
+    # per example at these parameters, so this is not a flake source.
+    while probes < 8000:
         candidate = f"probe:{i}".encode()
         i += 1
         if candidate in present:

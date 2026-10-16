@@ -150,6 +150,7 @@ class LSMEngine:
                 *sealed, (last_path, last_recs) = replays
                 for wal_path, records in sealed:
                     mem, mx = _rebuild(records, self._options.memtable_bytes)
+                    mem.make_immutable()
                     self._sealed.append(_Sealed(mem, wal_path, mx))
                     self._applied = max(self._applied, mx)
                 mem, mx = _rebuild(last_recs, self._options.memtable_bytes)
@@ -297,10 +298,11 @@ class LSMEngine:
         if error is not None:
             raise error
 
-    def _crash(self) -> None:
-        """Test hook: simulate a crash. In-memory state is dropped WITHOUT
-        flushing; WALs and SSTables stay as they are. The engine cannot be
-        used afterwards."""
+    def crash(self) -> None:
+        """Simulate an unclean shutdown (like kill -9): stop the worker and
+        release files WITHOUT flushing. In-memory memtables are lost; WALs
+        and SSTables stay as they are. Test and simulation hook; the engine
+        cannot be used afterwards (reopen a new one on the same directory)."""
         with self._guard:
             if not self._is_open or self._is_closed:
                 return
@@ -466,6 +468,8 @@ class LSMEngine:
 
 
 def _rebuild(records: list[WalRecord], memtable_bytes: int) -> tuple[MemTable, int]:
+    """Replay WAL records into a fresh memtable. The caller seals it when
+    the memtable is a sealed backlog entry (the live one stays mutable)."""
     mem = MemTable(max_size_bytes=memtable_bytes)
     mx = 0
     for record in records:
@@ -474,7 +478,6 @@ def _rebuild(records: list[WalRecord], memtable_bytes: int) -> tuple[MemTable, i
         else:
             mem.delete(record.key, record.raft_index)
         mx = max(mx, record.raft_index)
-    mem.make_immutable()
     return mem, mx
 
 

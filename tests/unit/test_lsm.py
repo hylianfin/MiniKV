@@ -132,7 +132,7 @@ def test_crash_recovery_replays_wal(tmp_path) -> None:
     engine.open()
     for i in range(20):
         engine.put(f"k{i}".encode(), f"v{i}".encode(), raft_index=i + 1)
-    engine._crash()
+    engine.crash()
     assert list(path.glob("wal_*.log")) != []
 
     engine2 = LSMEngine(path, _opts(memtable_bytes=10**9))
@@ -140,6 +140,10 @@ def test_crash_recovery_replays_wal(tmp_path) -> None:
     for i in range(20):
         assert engine2.get(f"k{i}".encode()) == f"v{i}".encode()
     assert engine2.applied_index() == 20
+    # The replayed memtable is live: writing after reopen works.
+    engine2.put(b"after", b"reopen", raft_index=21)
+    assert engine2.get(b"after") == b"reopen"
+    assert engine2.applied_index() == 21
     engine2.close()
 
 
@@ -166,7 +170,7 @@ def test_lifecycle_edges(tmp_path) -> None:
     assert engine.path == tmp_path / "db"
     with pytest.raises(RuntimeError):
         engine.get(b"k")  # not open
-    engine._crash()  # no-op before open
+    engine.crash()  # no-op before open
     engine.open()
     with pytest.raises(RuntimeError):
         engine.open()  # double open
@@ -201,11 +205,26 @@ def test_batch_policy_survives_crash(tmp_path) -> None:
     engine.open()
     for i in range(10):
         engine.put(f"k{i}".encode(), b"v", raft_index=i + 1)
-    engine._crash()
+    engine.crash()
     engine2 = LSMEngine(path, _opts(memtable_bytes=10**9))
     engine2.open()
     assert engine2.applied_index() == 10
     engine2.close()
+
+
+def test_deletes_trigger_rotation(tmp_path) -> None:
+    path = tmp_path / "db"
+    engine = LSMEngine(path, _opts(memtable_bytes=256))
+    engine.open()
+    for i in range(30):
+        engine.put(f"k{i:02d}".encode(), b"x" * 20, raft_index=i + 1)
+    engine.flush()
+    for i in range(30):
+        engine.delete(f"k{i:02d}".encode(), raft_index=100 + i)
+    engine.flush()  # drains the delete-driven rotation too
+    assert engine.get(b"k00") is None
+    assert engine.applied_index() == 129
+    engine.close()
 
 
 def test_get_reads_sealed_memtable(tmp_path) -> None:

@@ -30,7 +30,7 @@ def _populate(path: Path, n: int = 20) -> tuple[list[WalRecord], Path]:
         key, value = f"k{i:02d}".encode(), f"v{i}".encode()
         engine.put(key, value, raft_index=i + 1)
         records.append(WalRecord(RecordType.PUT, key, value, i + 1))
-    engine._crash()
+    engine.crash()
     wals = list(path.glob("wal_*.log"))
     assert len(wals) == 1
     return records, wals[0]
@@ -134,7 +134,7 @@ def test_engine_compact_faults_then_converges(tmp_path: Path) -> None:
         engine.open()
         with pytest.raises(Crash):
             engine.compact(fault=crash)
-        engine._crash()  # the real crash: abandon in-memory state
+        engine.crash()  # the real crash: abandon in-memory state
         view, applied = _view(sub, memtable_bytes=512, compaction_trigger=2)
         assert view == {b"a": b"v3"}  # newest of the four, tombstone hides b
         assert applied == 7  # manifest raft index survives, never regresses
@@ -158,7 +158,7 @@ def test_engine_flush_faults_then_converges(tmp_path: Path) -> None:
 
         with pytest.raises(Crash):
             engine.flush(fault=crash)
-        engine._crash()
+        engine.crash()
         view, applied = _view(sub, memtable_bytes=512)
         assert view == {b"a": b"va", b"b": b"vb"}
         assert applied == 2
@@ -252,7 +252,7 @@ def test_crash_with_sealed_job_pending_abandons_it_safely(tmp_path: Path) -> Non
         assert entered.wait(30)  # worker is stalled inside job 1
         for i in range(4, 8):
             engine.put(f"s{i}".encode(), b"v", raft_index=i + 1)  # more jobs pending
-        crasher = threading.Thread(target=engine._crash)
+        crasher = threading.Thread(target=engine.crash)
         crasher.start()
         # Release only after the crash flag is set, so pending jobs are
         # deterministically abandoned instead of raced through.

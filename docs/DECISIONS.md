@@ -86,3 +86,19 @@ likewise. Committed-entry records are global and never reset.
 RPC responses carry no author (matching proto), but check-quorum needs
 contact attribution, so the runtime passes it. Requests ignore it (they
 carry candidate/leader ids).
+
+## D18 (M6): sessions live in a separate LSM engine, not a key prefix
+A reserved key prefix would collide with arbitrary user bytes and leak
+into scans. A second engine (same apply path, same crash semantics) is
+airtight at the cost of one more WAL/memtable per node.
+
+## D19 (M6): session record follows the data write, never precedes it
+A crash between them re-applies idempotently (all ops last-writer-wins);
+recording first could acknowledge data that was never written. Replay is
+result-stable because the original session record (durable) is consulted
+before any re-apply.
+
+## D20 (M6): stale (older-than-recorded) sequences re-execute unrecorded
+Unreachable through Raft (same-client entries apply in seq order), but the
+fallback is state-safe rather than an error: execute, return fresh result,
+leave the session table untouched.

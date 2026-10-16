@@ -38,5 +38,14 @@
 - Caught by simulation (all fixed + tested): pre-vote voted_for gate blocking post-crash elections; fast-backup forward-jump livelock; duplicated step-down block.
 - Decisions: D12-D17.
 
+## M6 (done)
+- `minikv/raft/logstore.py`: file-backed `LogStore` (atomic meta JSON + CRC log with torn-tail recovery, gap detection, contiguity enforcement, fsync-before-ack persist, commit/applied progress).
+- `minikv/kv/state_machine.py`: fixed binary command codec (PUT/DELETE/CAS), results codec, request envelope with session ctx, deterministic `KVStateMachine`, `KVApplier` (session-check → data → session-record, own data+session LSM engines, open/crash/reopen/close).
+- `minikv/kv/sessions.py`: LSM-backed `SessionTable` with LRU (10k cap), corrupt-tolerant lookup, eviction deletes.
+- `sim/cluster.py`: applier hooks (apply/crash/reopen/close), per-index applier results; `LSMEngine._crash` promoted to public `crash()`.
+- Tests: logstore recovery/truncation/meta/crash-prefix matrix; codec round-trips incl. hypothesis fuzz; CAS/result dedup incl. post-crash cache; KV-over-Raft sim (dict model, failover-dedup money test, restart-all, mid-workload crash, fsync-loss pruning). 100% source coverage. 198 tests pass; ruff + mypy strict clean.
+- Caught: replayed memtable left immutable (first post-reopen put crashed); CAS result presence-flag inversion.
+- Decisions: D18-D20.
+
 ## Left
-- M6..M10 per scope. Next: M6 Raft persistence (logstore) + KV state machine + sessions.
+- M7..M10 per scope. Next: M7 real gRPC server + client + CLI + Docker.

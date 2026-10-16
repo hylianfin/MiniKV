@@ -9,7 +9,9 @@ be replayed exactly.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from minikv.raft.core import RaftCore, coalesce_actions
 from minikv.raft.types import (
@@ -27,6 +29,9 @@ from minikv.raft.types import (
 )
 from sim.clock import VirtualClock
 from sim.network import SimNetwork
+
+if TYPE_CHECKING:
+    from minikv.kv.state_machine import KVApplier
 
 
 @dataclass
@@ -83,7 +88,9 @@ class SimNode:
     node_id: str
     core: RaftCore | None = None
     store: MemoryStore = field(default_factory=MemoryStore)
-    applied: dict[int, bytes] = field(default_factory=dict)  # the "state machine"
+    applied: dict[int, bytes] = field(default_factory=dict)  # the commands
+    results: dict[int, bytes] = field(default_factory=dict)  # applier results
+    applier: KVApplier | None = None
     alive: bool = True
     generation: int = 0  # bumped on crash/restart: a new incarnation
 
@@ -101,6 +108,7 @@ class SimCluster:
         drop_p: float = 0.0,
         dup_p: float = 0.0,
         fsync_mode: str = "immediate",
+        applier_factory: Callable[[str], KVApplier] | None = None,
     ) -> None:
         if fsync_mode not in ("immediate", "manual"):
             raise ValueError("fsync_mode must be immediate or manual")
@@ -115,11 +123,15 @@ class SimCluster:
             dup_p=dup_p,
         )
         self.fsync_mode = fsync_mode
+        self.applier_factory = applier_factory
         self.nodes: dict[str, SimNode] = {}
         for node_id in node_ids:
             peers = [n for n in node_ids if n != node_id]
             node = SimNode(node_id=node_id)
             node.core = self._new_core(node_id, peers, node.store)
+            if applier_factory is not None:
+                node.applier = applier_factory(node_id)
+                node.applier.open()
             self.nodes[node_id] = node
 
     @property
@@ -194,10 +206,14 @@ class SimCluster:
         node.alive = False
         node.core = None
         node.generation += 1
+        if node.applier is not None:
+            node.applier.crash()
         if lose_unfsynced:
             node.store.crash_lose_unfsynced()
             for index in [i for i in node.applied if i > node.store.applied]:
                 del node.applied[index]
+            for index in [i for i in node.results if i > node.store.applied]:
+                del node.results[index]
 
     def restart(self, node_id: str) -> None:
         node = self.nodes[node_id]
@@ -205,6 +221,14 @@ class SimCluster:
         node.core = self._new_core(node_id, peers, node.store)
         node.alive = True
         node.generation += 1
+        if node.applier is not None:
+            node.applier.reopen()
+
+    def shutdown(self) -> None:
+        """Close all appliers (releases their LSM engines). Idempotent."""
+        for node in self.nodes.values():
+            if node.applier is not None:
+                node.applier.close()
 
     def partition(self, groups: list[set[str]] | None) -> None:
         self.network.set_partition(groups)
@@ -236,5 +260,7 @@ class SimCluster:
                 node.store.applied = max(node.store.applied, action.index)
                 if node.core is not None:
                     node.store.commit = max(node.store.commit, node.core.commit_index)
+                if node.applier is not None:
+                    node.results[action.index] = node.applier.apply(action.index, action.payload)
             if self.fsync_mode == "immediate":
                 node.store.fsync()
