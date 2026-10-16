@@ -8,7 +8,14 @@ step inside ``run_checked``.
 from minikv.raft.types import ProposeOk, RaftConfig, Role
 from sim.cluster import SimCluster
 from sim.invariants import InvariantChecker
-from tests.sim.helpers import propose_sync, run_checked, run_seeds, wait_applied, wait_for_leader
+from tests.sim.helpers import (
+    propose_sync,
+    run_checked,
+    run_seeds,
+    sim_seeds,
+    wait_applied,
+    wait_for_leader,
+)
 
 
 def scenario_election(n: int, seed: int) -> None:
@@ -42,19 +49,19 @@ def scenario_replication(n: int, seed: int, batched: bool = False) -> None:
 
 
 def test_election_3node() -> None:
-    run_seeds(lambda s: scenario_election(3, s), range(200), "election/3")
+    run_seeds(lambda s: scenario_election(3, s), sim_seeds(200), "election/3")
 
 
 def test_election_5node() -> None:
-    run_seeds(lambda s: scenario_election(5, s), range(200), "election/5")
+    run_seeds(lambda s: scenario_election(5, s), sim_seeds(200), "election/5")
 
 
 def test_replication_3node() -> None:
-    run_seeds(lambda s: scenario_replication(3, s), range(200), "replication/3")
+    run_seeds(lambda s: scenario_replication(3, s), sim_seeds(200), "replication/3")
 
 
 def test_replication_5node() -> None:
-    run_seeds(lambda s: scenario_replication(5, s), range(200), "replication/5")
+    run_seeds(lambda s: scenario_replication(5, s), sim_seeds(200), "replication/5")
 
 
 def test_replication_batched() -> None:

@@ -1,8 +1,20 @@
 """Shared deterministic-scenario drivers (seed-replayable, invariant-checked)."""
 
+import os
+
 from minikv.raft.types import NotLeader, ProposeOk
 from sim.cluster import SimCluster
 from sim.invariants import InvariantChecker, InvariantViolation
+
+
+def sim_seeds(default: int) -> range:
+    """Seed range for a scenario family; override with MINIKV_SIM_SEEDS
+    (nightly CI runs the M5 acceptance scenarios at 1000)."""
+    try:
+        count = int(os.environ.get("MINIKV_SIM_SEEDS", str(default)))
+    except ValueError:
+        count = default
+    return range(max(count, 1))
 
 
 def run_checked(cluster: SimCluster, checker: InvariantChecker, duration_ms: int) -> None:

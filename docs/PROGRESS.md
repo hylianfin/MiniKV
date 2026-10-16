@@ -58,5 +58,15 @@
 - Caught: single-node never committing (commit only advanced on responses — added `check_commit`); `grpc.AioRpcError` attribute (it's `grpc.aio.AioRpcError`); generated grpc import needs packaging fixup; grpc.aio stalls on non-main-thread loops (CLI tests use real subprocesses).
 - Decisions: D21-D26.
 
+## M8 (done)
+- `sim/history.py`: OpRecord/History with JSON round-trip (chaos histories check offline).
+- `sim/linearizability.py`: per-key Wing & Gong DFS with memoization (put/get/delete/CAS, preconditions, real-time precedence, timeout-as-optional modeling).
+- `docker/chaos.py`: 8 clients × mixed ops + kill/pause/restart faults on compose, read-back + checker gates, `--compose` self-management.
+- `.github/workflows/nightly.yml`: 1000-seed sim + 3× chaos; `MINIKV_SIM_SEEDS` scales the M5 families.
+- Tests: 16 checker self-tests (good/bad/timeout/sensitivity/malformed), sim histories with leader-kill (30 seeds), live ReadIndex proof (180 ops), chaosHistory JSON.
+- Verified: 5 sim families × 1000 seeds green (~15s); chaos 3 consecutive runs green (0 lost, 9-13k ops linearizable each); 256 tests pass; ruff + mypy clean; 100% source coverage.
+- Caught: chaos keys persisting across runs broke the absent-initial assumption (per-run unique keys); `&`/`==` precedence bug in the DFS terminal check.
+- Decisions: D27-D29.
+
 ## Left
-- M8..M10 per scope. Next: M8 linearizability checker + ReadIndex proof + chaos.
+- M9..M10 per scope. Next: M9 benchmarks + docs (README, DESIGN, diagrams, report).

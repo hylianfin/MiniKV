@@ -1,0 +1,48 @@
+name: nightly
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  sim-1000-seeds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Proto
+        run: python proto/gen_proto.py
+      - name: Election + replication over 1000 seeds
+        run: MINIKV_SIM_SEEDS=1000 python -m pytest tests/sim/test_raft_sim.py -q -k "election or replication"
+        timeout-minutes: 60
+
+  docker-chaos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+      - name: Proto
+        run: python proto/gen_proto.py
+      - name: Bring up the cluster
+        run: docker compose --project-directory docker -f docker/docker-compose.yml up -d --build
+      - name: Three consecutive chaos runs
+        run: |
+          for i in 1 2 3; do
+            python docker/chaos.py --duration 60 --seed $((20260612 + i)) || exit 1
+          done
+        timeout-minutes: 30
+      - name: Tear down
+        if: always()
+        run: docker compose --project-directory docker -f docker/docker-compose.yml down -v

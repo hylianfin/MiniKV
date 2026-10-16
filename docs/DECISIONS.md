@@ -133,3 +133,20 @@ The leader records commit_index, confirms a heartbeat majority at the
 same term, then waits for LSM application (not just core emission) before
 reading. Stale-leader reads are impossible: a deposed leader cannot
 assemble a same-term majority without learning the newer term.
+
+## D27 (M8): timeouts model as optional operations (sound direction)
+A timed-out write may have applied or not: the checker tries both. A
+timed-out read observed nothing: dropped. This over-approximates, so a
+pass means *some* valid linearization exists; a failure means none does.
+False passes are possible in principle, false failures are not (modulo
+the initial-state assumption below).
+
+## D28 (M8): histories start from absent keys
+The checker assumes registers start empty. Chaos runs use per-run unique
+key prefixes so back-to-back runs on dirty volumes still satisfy this;
+without it, pre-existing values read as lost-write violations.
+
+## D29 (M8): CAS/delete results constrain the pre-state
+Successful CAS requires state==expected, delete carries existed, failed
+CAS reads current. This is what makes the checker sensitive to
+read-modify-write anomalies, not just stale reads.
