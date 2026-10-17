@@ -158,7 +158,20 @@ def test_index_rejections(tmp_path: Path) -> None:
     lay = _layout(base)
     lay.raw[lay.index_off + 12 : lay.index_off + 16] = U32.pack(0xFFFFFF)  # blk_size huge
     path = _write_mutated(tmp_path, lay, "i5.sst")
-    _expect_read_raise(path)  # short block read -> unexpected EOF
+    _expect_read_raise(path)  # index block past EOF -> bounds check (Linux would
+    # reject the seek with EINVAL instead of a short read if we didn't check)
+
+
+def test_read_after_file_shrinks_raises(tmp_path: Path) -> None:
+    """Bounds are checked against the size recorded at open; if the file
+    shrinks afterwards, the short read (not the bounds check) must raise."""
+    path = _valid_file(tmp_path)
+    with SSTableReader(path) as reader:
+        _, off, size = reader._index[0]  # block holding the first key
+        raw = path.read_bytes()
+        path.write_bytes(raw[: off + size // 2])  # cut the block in half
+        with pytest.raises(CorruptSSTableError, match="EOF"):
+            reader.get(b"a")
 
 
 def test_bloom_rejection(tmp_path: Path) -> None:

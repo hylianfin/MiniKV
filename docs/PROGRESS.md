@@ -78,3 +78,10 @@
 
 ## Left
 - M10 (stretch, pick any) per scope. Suggested: snapshots/InstallSnapshot, membership change, Prometheus metrics, or TypeScript client.
+
+## Post-M9 CI fixes (Linux runners)
+- `SSTableReader` bounds-checks index block offsets against the file size
+  recorded at open (Linux rejects huge seeks with EINVAL instead of a short
+  read); added a file-shrunk-after-open test for the short-read guard.
+- `test_scan_and_status` waits for the follower's `last_applied` to catch up
+  before the stale-scan assertion (stale reads legitimately lag; was a race).

@@ -206,7 +206,7 @@ class SSTableReader:
         self._path = Path(path)
         self._f: BinaryIO | None = open(self._path, "rb")  # noqa: PTH123
         try:
-            footer = self._read_footer()
+            footer, self._file_size = self._read_footer()
             self._entry_count = footer.count
             self._min_key = footer.min_key
             self._max_key = footer.max_key
@@ -279,7 +279,7 @@ class SSTableReader:
     def __exit__(self, *exc: object) -> None:
         self.close()
 
-    def _read_footer(self) -> _Footer:
+    def _read_footer(self) -> tuple[_Footer, int]:
         f = self._require_open()
         f.seek(0, os.SEEK_END)
         size = f.tell()
@@ -315,14 +315,17 @@ class SSTableReader:
             raise CorruptSSTableError("footer offsets out of range")
         if bloom_off < index_off + index_size:
             raise CorruptSSTableError("bloom overlaps index")
-        return _Footer(
-            index_off=index_off,
-            index_size=index_size,
-            bloom_off=bloom_off,
-            bloom_size=bloom_size,
-            count=count,
-            min_key=min_key,
-            max_key=max_key,
+        return (
+            _Footer(
+                index_off=index_off,
+                index_size=index_size,
+                bloom_off=bloom_off,
+                bloom_size=bloom_size,
+                count=count,
+                min_key=min_key,
+                max_key=max_key,
+            ),
+            size,
         )
 
     def _read_index(self, off: int, size: int) -> list[tuple[bytes, int, int]]:
@@ -360,6 +363,11 @@ class SSTableReader:
             raise CorruptSSTableError(f"bad bloom block: {e}") from e
 
     def _read_block(self, off: int, size: int) -> list[SSTEntry]:
+        # Bounds-check before seeking: some platforms (Linux) reject huge
+        # seeks with EINVAL instead of returning a short read, and a corrupt
+        # index must surface as CorruptSSTableError everywhere.
+        if off + size > self._file_size:
+            raise CorruptSSTableError("index block out of file bounds")
         f = self._require_open()
         f.seek(off)
         raw = _require_len(f.read(size), size)

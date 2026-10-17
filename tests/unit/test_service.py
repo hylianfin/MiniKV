@@ -1,5 +1,6 @@
 """Servicer-level tests: KV/Raft gRPC handlers over mesh nodes (no sockets)."""
 
+import asyncio
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -176,6 +177,17 @@ async def test_scan_and_status() -> None:
 
             assert ctx.codes == [grpc.StatusCode.FAILED_PRECONDITION]
             assert ctx.details[0].startswith("NOT_LEADER")
+            # A stale scan reads the follower's *local* applied state, which
+            # lags the leader's by up to one heartbeat; wait for catch-up
+            # instead of racing the apply loop.
+            leader_status = await svc.Status(pb2.StatusRequest(), None)  # type: ignore[arg-type]
+            deadline = asyncio.get_running_loop().time() + 5.0
+            while True:
+                fstatus = await fsvc.Status(pb2.StatusRequest(), None)  # type: ignore[arg-type]
+                if fstatus.last_applied >= leader_status.last_applied:
+                    break
+                assert asyncio.get_running_loop().time() < deadline, "follower never caught up"
+                await asyncio.sleep(0.02)
             stale_items = [i async for i in fsvc.Scan(pb2.ScanRequest(mode=pb2.READ_STALE), Ctx())]
             assert len(stale_items) == 5
         finally:
